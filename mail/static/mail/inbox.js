@@ -28,7 +28,7 @@ function compose_email() {
 }
 
 function send_email(event) {
-  event.preventDefault(); // Prevent default form submission
+  event.preventDefault(); 
 
   // Get values from the form
   const recipients = document.querySelector('#compose-recipients').value;
@@ -49,16 +49,15 @@ function send_email(event) {
   })
   .then(response => {
     if (!response.ok) {
-      throw new Error('Ошибка при отправке письма');
+      throw new Error('Error sending email');
     }
     return response.json();
   })
   .then(result => {
-    console.log(result);
     load_mailbox('sent');
   })
   .catch(error => {
-    console.error('Ошибка:', error);
+    console.error('Error:', error);
   });
 }
 
@@ -78,7 +77,7 @@ function load_mailbox(mailbox) {
   fetch(`/emails/${mailbox}`)
     .then(response => {
       if (!response.ok) {
-        throw new Error('Ошибка при загрузке почтового ящика');
+        throw new Error('Error loading mailbox');
       }
       return response.json();
     })
@@ -88,16 +87,32 @@ function load_mailbox(mailbox) {
         const email_div = document.createElement('div');
         email_div.className = 'email-item';
         email_div.innerHTML = `<strong>${email.sender}</strong> ${email.subject} <span class="timestamp">${email.timestamp}</span>`;
+        
+        // Set background color based on read status
         email_div.style.backgroundColor = email.read ? 'lightgray' : 'white';
         email_div.style.border = '1px solid black';
         email_div.style.padding = '10px';
         email_div.style.margin = '5px';
-        email_div.addEventListener('click', () => load_email(email.id));
+        email_div.addEventListener('click', () => {
+          load_email(email.id);
+          // After loading the email, mark it as read
+          if (!email.read) {
+            fetch(`/emails/${email.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({
+                read: true
+              })
+            }).then(() => {
+              // Update the background color to reflect the read status
+              email_div.style.backgroundColor = 'lightgray';
+            });
+          }
+        });
         document.querySelector('#emails-view').append(email_div);
       });
     })
     .catch(error => {
-      console.error('Ошибка:', error);
+      console.error('Error:', error);
     });
 }
 
@@ -120,7 +135,6 @@ function load_email(email_id) {
   fetch(`/emails/${email_id}`)
     .then(response => response.json())
     .then(email => {
-      // Mark the email as read
       if (!email.read) {
         fetch(`/emails/${email_id}`, {
           method: 'PUT',
@@ -129,7 +143,6 @@ function load_email(email_id) {
           })
         });
       }
-      
       // Display the email details
       email_view.innerHTML = `
         <strong>From:</strong> ${email.sender}<br>
@@ -137,15 +150,29 @@ function load_email(email_id) {
         <strong>Subject:</strong> ${email.subject}<br>
         <strong>Timestamp:</strong> ${email.timestamp}<br>
         <button class="btn btn-sm btn-outline-primary" id="reply">Reply</button>
+        <button class="btn btn-sm btn-outline-secondary" id="archive">${email.archived ? 'Unarchive' : 'Archive'}</button>
         <hr>
         <p>${email.body}</p>
       `;
+
+      // Add archive/unarchive functionality
+      document.querySelector('#archive').addEventListener('click', () => {
+        fetch(`/emails/${email.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+        archived: !email.archived
+      })
+  })
+      .then(() => {
+    // After archiving or unarchiving, load the inbox
+    load_mailbox('inbox');
+  });
+});
 
       // Add reply functionality
       document.querySelector('#reply').addEventListener('click', () => reply_email(email));
     });
 }
-
 
 function reply_email(email) {
   // Show compose view and hide other views

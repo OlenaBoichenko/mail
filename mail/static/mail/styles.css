@@ -1,3 +1,7 @@
+#email-view {
+    padding: 20px;
+}
+
 textarea {
     min-height: 400px;
 }
